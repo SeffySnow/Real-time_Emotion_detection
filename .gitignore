@@ -7,7 +7,7 @@ __pycache__/
 *.ipynb_checkpoints/
 
 # Data / model caches (if too large)
-models/*.pt
+models/best_1.pt
 
 # OS files
 .DS_Store
