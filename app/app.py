@@ -1,63 +1,20 @@
 import io
 import os
-import requests
 import torch
 import numpy as np
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from ultralytics import YOLO
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 1) Determine the directory of this file (the app folder)
+# 1) Determine the directory of this file (app folder)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 2) Paths for model download and local storage
-MODELS_DIR   = os.path.join(BASE_DIR, "..", "models")
-MODEL_FILENAME = "best.pt"
-MODEL_PATH   = os.path.join(MODELS_DIR, MODEL_FILENAME)
-
-# 3) Google Drive “export=download” URL using your file’s ID
-GDRIVE_FILE_ID = "1Hyfo-AXQjZQ8tRunf8xHV-XWbaWP0UFJ"
-GDRIVE_URL     = f"https://drive.google.com/uc?export=download&id={GDRIVE_FILE_ID}"
-
-# 4) If the model isn’t already on disk, download it from Google Drive
-if not os.path.exists(MODEL_PATH):
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    print("Downloading best.pt from Google Drive...")
-
-    session = requests.Session()
-    # First request to get any confirmation token (for large files)
-    response = session.get(GDRIVE_URL, stream=True)
-    token = None
-
-    # Google Drive may return a confirmation token in cookies if the file is large
-    for key, value in response.cookies.items():
-        if key.startswith("download_warning"):
-            token = value
-            break
-
-    if token:
-        # Append &confirm= token to force the download
-        download_url = f"{GDRIVE_URL}&confirm={token}"
-        response = session.get(download_url, stream=True)
-
-    # Stream the response to the local file
-    with open(MODEL_PATH, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
-
-    print("Download complete: saved to", MODEL_PATH)
-else:
-    print("Model already exists at", MODEL_PATH)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 5) Configure Flask to look for templates/static under app/
+# 2) Configure Flask to look for templates/static under app/
 template_dir = os.path.join(BASE_DIR, "templates")
 static_dir   = os.path.join(BASE_DIR, "static")
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
-# 6) Emotion labels (must match your data.yaml order)
+# 3) Emotion labels (must match your data.yaml order)
 labels = [
     "angry",
     "contempt",
@@ -70,7 +27,7 @@ labels = [
     "surprised"
 ]
 
-# 7) Pick device: MPS if available (macOS), else CPU
+# 4) Pick device: MPS if available (macOS), else CPU
 if torch.backends.mps.is_available() and torch.backends.mps.is_built():
     DEVICE = "mps"
     print("⎯⎯⎯ Using MPS for inference")
@@ -78,11 +35,11 @@ else:
     DEVICE = "cpu"
     print("⎯⎯⎯ Using CPU for inference")
 
-# 8) Load YOLOv8 checkpoint from the local models folder
-model = YOLO(MODEL_PATH)
+# 5) Load YOLOv8 checkpoint from ../models/best.pt
+weights_path = os.path.join(BASE_DIR, "..", "models", "best.pt")
+model = YOLO(weights_path)
 model.to(DEVICE)
 
-# ──────────────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     """
